@@ -32,7 +32,6 @@ try {
 
   const districtTokensResponse = await getTokens.json();
   districtTokensData = districtTokensResponse.data;
-  console.log(districtTokensData);
 } catch (err) {
   throw new Error(`Error fetching district tokens ${err}`);
 }
