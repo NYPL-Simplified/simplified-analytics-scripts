@@ -1,0 +1,15 @@
+{
+  "scripts": {
+    "numSchools": "node getNumberSchoolsInDistrict.js",
+    "districtEmails": "node getDistrictEmails.js"
+  },
+  "type": "module",
+  "dependencies": {
+    "dotenv": "^16.0.2",
+    "fs": "^0.0.1-security",
+    "node-fetch": "^3.2.10"
+  },
+  "devDependencies": {
+    "@types/node": "^18.7.15"
+  }
+}
