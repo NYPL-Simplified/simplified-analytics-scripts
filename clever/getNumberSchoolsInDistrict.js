@@ -2,6 +2,7 @@
 import fetch from "node-fetch";
 import * as dotenv from "dotenv";
 import * as fs from "fs";
+
 dotenv.config({ path: ".env.local" });
 
 // create basic auth token from clever client id and client secret
@@ -41,6 +42,9 @@ let numberOfSchools = 0;
 let schoolLocations = [];
 let numSchoolsWithoutLocations = 0;
 
+console.log(
+  `Fetching ${districtTokensData.length} school districts... Token: ${basicAuthToken}`
+);
 for (let i = 0; i < districtTokensData.length; i++) {
   let schoolsResponseData = [];
   try {
@@ -64,6 +68,15 @@ for (let i = 0; i < districtTokensData.length; i++) {
     const schoolsResponse = await getSchoolsInDistrict.json();
     schoolsResponseData = schoolsResponse.data;
     numberOfSchools += schoolsResponse.data.length;
+    console.log(
+      `${schoolsResponse.data.length} schools fetched. id=${JSON.stringify(
+        schoolsResponse.data,
+        undefined,
+        4
+      )} - Access Token: ${districtTokensData[i].access_token}`
+    );
+
+    console.log(`Bearer ${districtTokensData[i].access_token}`);
   } catch (err) {
     throw new Error(
       `Error fetching school district id=${districtTokensData[i].id}: ${err}`
@@ -96,17 +109,17 @@ for (let i = 0; i < districtTokensData.length; i++) {
   });
 }
 
-const schoolLocationsFilePath = "./schoolLocations.json"
+const schoolLocationsFilePath = "./schoolLocations.json";
 
-const schoolLocationsJSONString = JSON.stringify(schoolLocations)
+const schoolLocationsJSONString = JSON.stringify(schoolLocations);
 
-fs.writeFile(`${schoolLocationsFilePath}`, schoolLocationsJSONString, err => {
+fs.writeFile(`${schoolLocationsFilePath}`, schoolLocationsJSONString, (err) => {
   if (err) {
-    throw new Error(`Error writing file ${schoolLocationsFilePath}: ${err}`)
+    throw new Error(`Error writing file ${schoolLocationsFilePath}: ${err}`);
   } else {
-      console.log(`Successfully wrote file ${schoolLocationsFilePath}`)
+    console.log(`Successfully wrote file ${schoolLocationsFilePath}`);
   }
-})
+});
 
 // print number of participating districts
 console.log(
