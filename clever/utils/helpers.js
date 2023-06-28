@@ -1,4 +1,6 @@
 import * as fs from "fs";
+import * as path from "path";
+
 import { AsyncParser } from "@json2csv/node";
 
 export async function arrayToCSV(data, opts) {
@@ -8,6 +10,12 @@ export async function arrayToCSV(data, opts) {
 }
 
 export async function writeToFile(fileName, data) {
+  const fileDir = path.dirname(fileName);
+
+  if (!fs.existsSync(fileDir)) {
+    fs.mkdirSync(fileDir, { recursive: true });
+  }
+
   try {
     await fs.writeFile(fileName, data, (err) => {
       if (err) {

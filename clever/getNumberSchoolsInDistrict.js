@@ -42,9 +42,6 @@ let numberOfSchools = 0;
 let schoolLocations = [];
 let numSchoolsWithoutLocations = 0;
 
-console.log(
-  `Fetching ${districtTokensData.length} school districts... Token: ${basicAuthToken}`
-);
 for (let i = 0; i < districtTokensData.length; i++) {
   let schoolsResponseData = [];
   try {
@@ -68,15 +65,6 @@ for (let i = 0; i < districtTokensData.length; i++) {
     const schoolsResponse = await getSchoolsInDistrict.json();
     schoolsResponseData = schoolsResponse.data;
     numberOfSchools += schoolsResponse.data.length;
-    console.log(
-      `${schoolsResponse.data.length} schools fetched. id=${JSON.stringify(
-        schoolsResponse.data,
-        undefined,
-        4
-      )} - Access Token: ${districtTokensData[i].access_token}`
-    );
-
-    console.log(`Bearer ${districtTokensData[i].access_token}`);
   } catch (err) {
     throw new Error(
       `Error fetching school district id=${districtTokensData[i].id}: ${err}`

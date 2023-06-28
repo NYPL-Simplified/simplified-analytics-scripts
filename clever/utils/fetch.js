@@ -41,6 +41,18 @@ export const fetchDistrict = async (district) => {
   return await response.json();
 };
 
+export const fetchDistrictAdmins = async (accessToken) => {
+  const response = await fetch(`${BASE_API_V3}/users?role=district_admin`, {
+    method: "GET",
+    headers: {
+      Accept: "application/json",
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  return await response.json();
+};
+
 /**
  *
  * @param {string} accessToken access_token from district
