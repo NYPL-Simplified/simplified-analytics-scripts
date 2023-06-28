@@ -5,9 +5,12 @@ export const DISTRICTS_ENDPOINT =
   "https://clever.com/oauth/tokens?owner_type=district";
 
 /**
+ *  Fetches all districts from Clever by basic token
  *
- * @param {string} basic token generated with username / password
- * @returns
+ *  https://dev.clever.com/reference/getdistricts-1
+ *
+ * @param {string} token
+ * @returns {Promise<object[]>} districts
  */
 export const fetchAllDistricts = async (token) => {
   const response = await fetch(DISTRICTS_ENDPOINT, {
@@ -24,9 +27,12 @@ export const fetchAllDistricts = async (token) => {
 };
 
 /**
+ * Fetches a district from Clever by id and access_token
+ *
+ * https://dev.clever.com/reference/getdistrict-1
  *
  * @param {object} district
- * @returns
+ * @returns {Promise<object[]>} districtResponses
  */
 export const fetchDistrict = async (district) => {
   const response = await fetch(`${BASE_API_V3}/districts`, {
@@ -38,9 +44,19 @@ export const fetchDistrict = async (district) => {
     },
   });
 
-  return await response.json();
+  const districtResponses = await response.json();
+
+  return districtResponses;
 };
 
+/**
+ * Fetches all district admins from Clever
+ *
+ * https://dev.clever.com/reference/getusers-1
+ *
+ * @param {string} accessToken
+ * @returns {Promise<object[]>} districtAdminResponses
+ */
 export const fetchDistrictAdmins = async (accessToken) => {
   const response = await fetch(`${BASE_API_V3}/users?role=district_admin`, {
     method: "GET",
@@ -50,13 +66,18 @@ export const fetchDistrictAdmins = async (accessToken) => {
     },
   });
 
-  return await response.json();
+  const districtAdminResponses = await response.json();
+
+  return districtAdminResponses;
 };
 
 /**
+ * Fetches all schools from Clever from a given district
+ *
+ * https://dev.clever.com/reference/getschools-1
  *
  * @param {string} accessToken access_token from district
- * @returns  schools
+ * @returns {Promise<object[]>} schoolResponses
  */
 export const fetchSchoolsByDistrict = async (accessToken) => {
   const response = await fetch(`${BASE_API_V3}/schools`, {
@@ -73,10 +94,13 @@ export const fetchSchoolsByDistrict = async (accessToken) => {
 };
 
 /**
+ * Fetches all teachers from Clever from a given district
+ *
+ * https://dev.clever.com/reference/getusers-1
  *
  * @param {object} school school object
  * @param {string} accessToken access_token from distict
- * @returns teachers
+ * @returns {Promise<object[]>} teachers
  */
 export const fetchTeachersBySchool = async (school, accessToken) => {
   const response = await fetch(
