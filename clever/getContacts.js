@@ -10,6 +10,69 @@ import {
 } from "./utils/fetch.js";
 import { arrayToCSV, writeToFile } from "./utils/helpers.js";
 
+const MAX_CONCURRENT_REQUESTS = 50;
+const spinner = ora().start();
+const limit = pLimit(MAX_CONCURRENT_REQUESTS);
+
+/**
+ * The district response is needed for all subsequent requests because it contains the access_token.
+ * The access token is needed to fetch the schools, admins, and teachers data
+ */
+const main = async () => {
+  try {
+    spinner.start("[Loading] Fetching Clever districts....");
+
+    const districtResponses = await fetchAllDistricts(basicAuthToken);
+
+    const districtDataResponses = await Promise.all(
+      districtResponses.map((district) => limit(() => fetchDistrict(district)))
+    );
+
+    // Convert the district data into a lookup table with the district ID so we can use it for teachers and distirct admins.
+    const allDistrictData = districtDataResponses.reduce((acc, district) => {
+      const districtData = district.data[0].data;
+      acc.set(districtData.id, {
+        name: districtData.name,
+        id: districtData.id,
+        nces_id: districtData.nces_id,
+        contact: districtData?.district_contact
+          ? `${districtData.district_contact?.name.first} ${districtData.district_contact?.name.last}`
+          : undefined,
+        email: districtData.district_contact?.email,
+      });
+
+      return acc;
+    }, new Map());
+
+    // Mapper to store the access token with the district_id as the key.
+    let districtIdMap = new Map();
+    for (let district of districtResponses) {
+      districtIdMap.set(district.owner.id, district.access_token);
+    }
+
+    spinner.succeed(
+      `[Succeed] Processed all ${allDistrictData.size} districts`
+    );
+
+    // Build and store all the district admins for our output
+    await buildAndStoreDistrictAdmins(districtIdMap, allDistrictData);
+
+    // Build and store all the teachers for our output
+    await buildAndStoreTeacherContacts(
+      districtResponses,
+      districtIdMap,
+      allDistrictData
+    );
+  } catch (error) {
+    console.log(error);
+    spinner.fail("[Failed] Failed to process Clever districts.");
+  }
+
+  spinner.succeed(`[Done]`);
+};
+
+main();
+
 const buildAndStoreDistrictAdmins = async (districtIdMap, allDistrictData) => {
   spinner.start("[Loading] Fetching District Admins....");
 
@@ -196,64 +259,3 @@ const buildAndStoreTeacherContacts = async (
     fileIndex++;
   }
 };
-
-const spinner = ora().start();
-const limit = pLimit(50);
-
-/**
- * The district response is needed for all subsequent requests because it contains the access_token.
- * The access token is needed to fetch the schools, admins, and teachers data
- */
-const main = async () => {
-  try {
-    spinner.start("[Loading] Fetching Clever districts....");
-
-    const districtResponses = await fetchAllDistricts(basicAuthToken);
-
-    const districtDataResponses = await Promise.all(
-      districtResponses.map((district) => limit(() => fetchDistrict(district)))
-    );
-
-    // Convert the district data into a lookup table with the district ID so we can use it for teachers and distirct admins.
-    const allDistrictData = districtDataResponses.reduce((acc, district) => {
-      const districtData = district.data[0].data;
-      acc.set(districtData.id, {
-        name: districtData.name,
-        id: districtData.id,
-        nces_id: districtData.nces_id,
-        contact: districtData?.district_contact
-          ? `${districtData.district_contact?.name.first} ${districtData.district_contact?.name.last}`
-          : undefined,
-        email: districtData.district_contact?.email,
-      });
-
-      return acc;
-    }, new Map());
-
-    // Mapper to store the access token with the district_id as the key.
-    let districtIdMap = new Map();
-    for (let district of districtResponses) {
-      districtIdMap.set(district.owner.id, district.access_token);
-    }
-
-    spinner.succeed(
-      `[Succeed] Processed all ${allDistrictData.size} districts`
-    );
-
-    // Build all the district admins for our output
-    await buildAndStoreDistrictAdmins(districtIdMap, allDistrictData);
-
-    await buildAndStoreTeacherContacts(
-      districtResponses,
-      districtIdMap,
-      allDistrictData
-    );
-  } catch (error) {
-    console.log(error);
-    spinner.fail("[Failed] Failed to process Clever districts.");
-  }
-
-  spinner.succeed(`[Done]`);
-};
-
-main();
