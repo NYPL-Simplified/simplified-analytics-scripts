@@ -2,8 +2,8 @@
 
 ## There are two scripts in this project
 
-1. `getNumberSchoolsInDistrict.js` - This script fetches Open eBooks data from the Clever API so that we can know more about the number of participating schools, districts, and their locations.
-2. `getContacts.js` - This script fetches all the contacts info of the district admins and teachers of each district.
+1. `getNumberSchoolsInDistrict.ts` - This script fetches Open eBooks data from the Clever API so that we can know more about the number of participating schools, districts, and their locations.
+2. `getContacts.ts` - This script fetches all the contacts info of the district admins and teachers of each district.
 
 ## How to run either script
 

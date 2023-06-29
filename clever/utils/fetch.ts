@@ -1,4 +1,11 @@
 import fetch from "node-fetch";
+import {
+  Token,
+  School,
+  DistrictData,
+  SchoolData,
+  DistrictAdminData,
+} from "../types";
 
 export const BASE_API_V3 = "https://api.clever.com/v3.0";
 export const DISTRICTS_ENDPOINT =
@@ -12,7 +19,7 @@ export const DISTRICTS_ENDPOINT =
  * @param {string} token
  * @returns {Promise<object[]>} districts
  */
-export const fetchAllDistricts = async (token) => {
+export const fetchAllDistricts = async (token: string) => {
   const response = await fetch(DISTRICTS_ENDPOINT, {
     method: "GET",
     headers: {
@@ -21,9 +28,9 @@ export const fetchAllDistricts = async (token) => {
     },
   });
 
-  const { data: districts } = await response.json();
+  const data: any = await response.json();
 
-  return districts;
+  return data.data;
 };
 
 /**
@@ -31,16 +38,16 @@ export const fetchAllDistricts = async (token) => {
  *
  * https://dev.clever.com/reference/getdistrict-1
  *
- * @param {object} district
+ * @param {object} token
  * @returns {Promise<object[]>} districtResponses
  */
-export const fetchDistrict = async (district) => {
+export const fetchDistrict = async (token: Token) => {
   const response = await fetch(`${BASE_API_V3}/districts`, {
     method: "GET",
     headers: {
       Accept: "application/json",
-      Authorization: `Bearer ${district.access_token}`,
-      id: district.id,
+      Authorization: `Bearer ${token.access_token}`,
+      id: token.id,
     },
   });
 
@@ -55,9 +62,11 @@ export const fetchDistrict = async (district) => {
  * https://dev.clever.com/reference/getusers-1
  *
  * @param {string} accessToken
- * @returns {Promise<object[]>} districtAdminResponses
+ * @returns {Promise<DistrictData[]>} districtAdminResponses
  */
-export const fetchDistrictAdmins = async (accessToken) => {
+export const fetchDistrictAdmins = async (
+  accessToken: string | undefined
+): Promise<DistrictAdminData[]> => {
   const response = await fetch(`${BASE_API_V3}/users?role=district_admin`, {
     method: "GET",
     headers: {
@@ -66,9 +75,13 @@ export const fetchDistrictAdmins = async (accessToken) => {
     },
   });
 
-  const districtAdminResponses = await response.json();
+  const districtAdminResponses: any = await response.json();
 
-  return districtAdminResponses;
+  if (!districtAdminResponses) {
+    throw new Error("Error fetching district admins");
+  }
+
+  return districtAdminResponses.data;
 };
 
 /**
@@ -77,9 +90,11 @@ export const fetchDistrictAdmins = async (accessToken) => {
  * https://dev.clever.com/reference/getschools-1
  *
  * @param {string} accessToken access_token from district
- * @returns {Promise<object[]>} schoolResponses
+ * @returns {Promise<SchoolData[]>} schoolResponses
  */
-export const fetchSchoolsByDistrict = async (accessToken) => {
+export const fetchSchoolsByDistrict = async (
+  accessToken: string
+): Promise<SchoolData[]> => {
   const response = await fetch(`${BASE_API_V3}/schools`, {
     method: "GET",
     headers: {
@@ -88,9 +103,9 @@ export const fetchSchoolsByDistrict = async (accessToken) => {
     },
   });
 
-  const schoolResponses = await response.json();
+  const schoolResponses: any = await response.json();
 
-  return schoolResponses;
+  return schoolResponses.data;
 };
 
 /**
@@ -98,13 +113,19 @@ export const fetchSchoolsByDistrict = async (accessToken) => {
  *
  * https://dev.clever.com/reference/getusers-1
  *
- * @param {object} school school object
+ * @param {School} school school object
  * @param {string} accessToken access_token from distict
  * @returns {Promise<object[]>} teachers
  */
-export const fetchTeachersBySchool = async (school, accessToken) => {
+export const fetchTeachersBySchool = async (
+  school: School,
+  accessToken: string | undefined
+) => {
+  if (!accessToken)
+    throw new Error("No access token provided for fetchTeachersBySchool");
+
   const response = await fetch(
-    `${BASE_API_V3}/schools/${school.data.id}/users?role=teacher`,
+    `${BASE_API_V3}/schools/${school.id}/users?role=teacher`,
     {
       method: "GET",
       headers: {
@@ -114,7 +135,7 @@ export const fetchTeachersBySchool = async (school, accessToken) => {
     }
   );
 
-  const teachers = await response.json();
+  const data: any = await response.json();
 
-  return teachers;
+  return data.data;
 };

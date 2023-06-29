@@ -1,7 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
 
-import { AsyncParser } from "@json2csv/node";
+import { AsyncParser, ParserOptions } from "@json2csv/node";
 
 /**
  *
@@ -9,7 +9,7 @@ import { AsyncParser } from "@json2csv/node";
  * @param {ParserOptions} opts
  * @returns {Promise<string>} csv
  */
-export async function arrayToCSV(data, opts) {
+export async function arrayToCSV(data: Array<any>, opts: ParserOptions) {
   const parser = new AsyncParser(opts);
   const csv = await parser.parse(data).promise();
   return csv;
@@ -23,7 +23,7 @@ export async function arrayToCSV(data, opts) {
  * @param {string} data
  * @returns {Promise<void>}
  */
-export async function writeToFile(fileName, data) {
+export async function writeToFile(fileName: string, data: any) {
   const fileDir = path.dirname(fileName);
 
   if (!fs.existsSync(fileDir)) {

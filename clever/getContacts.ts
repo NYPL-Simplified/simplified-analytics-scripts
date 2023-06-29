@@ -1,14 +1,14 @@
-import { basicAuthToken } from "./utils/auth.js";
+import { basicAuthToken } from "./utils/auth";
 import ora from "ora";
 import pLimit from "p-limit";
 import {
   fetchAllDistricts,
   fetchDistrict,
-  fetchDistrictAdmins,
   fetchSchoolsByDistrict,
   fetchTeachersBySchool,
-} from "./utils/fetch.js";
-import { arrayToCSV, writeToFile } from "./utils/helpers.js";
+} from "./utils/fetch";
+import { arrayToCSV, writeToFile } from "./utils/helpers";
+import { District, DistrictData, DistrictIdMap, Token } from "./types";
 
 const MAX_CONCURRENT_REQUESTS = 50;
 const spinner = ora().start();
@@ -22,12 +22,13 @@ const main = async () => {
   try {
     spinner.start("[Loading] Fetching Clever districts....");
 
-    const districtResponses = await fetchAllDistricts(basicAuthToken);
+    const tokenResponses = await fetchAllDistricts(basicAuthToken);
 
     const districtDataResponses = await Promise.all(
-      districtResponses.map((district) => limit(() => fetchDistrict(district)))
+      tokenResponses.map((token: Token) => limit(() => fetchDistrict(token)))
     );
 
+    // All the primary contacts of the district.
     // Convert the district data into a lookup table with the district ID so we can use it for teachers and distirct admins.
     const allDistrictData = districtDataResponses.reduce((acc, district) => {
       const districtData = district.data[0].data;
@@ -35,10 +36,13 @@ const main = async () => {
         name: districtData.name,
         id: districtData.id,
         nces_id: districtData.nces_id,
+        firstName: districtData?.district_contact?.name.first,
+        lastName: districtData?.district_contact?.name.last,
         contact: districtData?.district_contact
           ? `${districtData.district_contact?.name.first} ${districtData.district_contact?.name.last}`
           : undefined,
         email: districtData.district_contact?.email,
+        title: districtData?.district_contact?.title,
       });
 
       return acc;
@@ -46,7 +50,7 @@ const main = async () => {
 
     // Mapper to store the access token with the district_id as the key.
     let districtIdMap = new Map();
-    for (let district of districtResponses) {
+    for (let district of tokenResponses) {
       districtIdMap.set(district.owner.id, district.access_token);
     }
 
@@ -55,11 +59,11 @@ const main = async () => {
     );
 
     // Build and store all the district admins for our output
-    await buildAndStoreDistrictAdmins(districtIdMap, allDistrictData);
+    await buildAndStorePrimaryDistrictAdmins(allDistrictData);
 
     // Build and store all the teachers for our output
     await buildAndStoreTeacherContacts(
-      districtResponses,
+      tokenResponses,
       districtIdMap,
       allDistrictData
     );
@@ -73,39 +77,13 @@ const main = async () => {
 
 main();
 
-const buildAndStoreDistrictAdmins = async (districtIdMap, allDistrictData) => {
+const buildAndStorePrimaryDistrictAdmins = async (
+  allDistrictData: Map<string, DistrictData>
+) => {
   spinner.start("[Loading] Fetching District Admins....");
 
-  // Get every admins for every district
-  const districts = Array.from(districtIdMap.keys());
-  const districtAdminResponses = await Promise.all(
-    districts.map((districtId) =>
-      limit(() => fetchDistrictAdmins(districtIdMap.get(districtId)))
-    )
-  );
-
-  const allDistrictAdminContacts = [];
-  for (let districtAdminResponse of districtAdminResponses) {
-    for (let districtAdmin of districtAdminResponse.data) {
-      const districtName = allDistrictData.get(
-        districtAdmin.data.district
-      )?.name;
-      const districtId = allDistrictData.get(districtAdmin.data.district)?.id;
-      const ncesId = allDistrictData.get(districtAdmin.data.district)?.nces_id;
-      allDistrictAdminContacts.push({
-        name: districtName,
-        id: districtId,
-        nces_id: ncesId,
-        contact:
-          districtAdmin.data.name?.first + " " + districtAdmin.data.name?.last,
-        email: districtAdmin.data.email,
-        title: districtAdmin.data.roles?.district_admin?.title,
-      });
-    }
-  }
-
   spinner.succeed(
-    `[Succeed] Processed all ${allDistrictAdminContacts.length} Admin Contacts.`
+    `[Succeed] Processed all ${allDistrictData.size} Admin Contacts.`
   );
 
   const districtAdminOpts = {
@@ -123,8 +101,12 @@ const buildAndStoreDistrictAdmins = async (districtIdMap, allDistrictData) => {
         value: "nces_id",
       },
       {
-        label: "Primary Contact",
-        value: "contact",
+        label: "First Name",
+        value: "firstName",
+      },
+      {
+        label: "Last Name",
+        value: "lastName",
       },
       {
         label: "Primary Contact Email",
@@ -137,23 +119,102 @@ const buildAndStoreDistrictAdmins = async (districtIdMap, allDistrictData) => {
     ],
   };
 
+  const primaryAdminContacts = Array.from(allDistrictData.values());
   const districtAdminCsv = await arrayToCSV(
-    allDistrictAdminContacts,
+    primaryAdminContacts,
     districtAdminOpts
   );
 
   spinner.start("[Loading] Saving to CSV....");
 
-  const districtFilePath = "./districtAdminContacts.csv";
+  const districtFilePath = "./district/primaryAdminContacts.csv";
   await writeToFile(districtFilePath, districtAdminCsv);
 
   spinner.succeed(`[Succeed] ${districtFilePath} file generated`);
 };
 
+// NOTE: We may need this in the future if Miguel wanted all the district contacts.
+// const buildAndStoreAllDistrictAdmins = async (
+//   districtIdMap: Map<DistrictIdMap["id"], DistrictIdMap["access_token"]>,
+//   allDistrictData: Map<string, District>
+// ) => {
+//   spinner.start("[Loading] Fetching All District Admins....");
+
+//   // Get every admins for every district
+//   const districts = Array.from(districtIdMap.keys());
+//   const districtAdminResponses = await Promise.all(
+//     districts.map((districtId) =>
+//       limit(() => fetchDistrictAdmins(districtIdMap.get(districtId)))
+//     )
+//   );
+
+//   const allDistrictAdminContacts: DistrictAdminContacts[] = [];
+//   for (let districtAdminResponse of districtAdminResponses) {
+//     for (let { data: districtAdmin } of districtAdminResponse) {
+//       const districtName = allDistrictData.get(districtAdmin.district)?.name;
+//       const districtId = allDistrictData.get(districtAdmin.district)?.id;
+//       const ncesId = allDistrictData.get(districtAdmin.district)?.nces_id;
+//       allDistrictAdminContacts.push({
+//         name: districtName,
+//         id: districtId,
+//         nces_id: ncesId,
+//         contact: districtAdmin.name?.first + " " + districtAdmin.name?.last,
+//         email: districtAdmin.email,
+//         title: districtAdmin.roles?.district_admin?.title,
+//       });
+//     }
+//   }
+
+//   spinner.succeed(
+//     `[Succeed] Processed all ${allDistrictAdminContacts.length} Admin Contacts.`
+//   );
+
+//   const districtAdminOpts = {
+//     fields: [
+//       {
+//         label: "District Name",
+//         value: "name",
+//       },
+//       {
+//         label: "District ID",
+//         value: "id",
+//       },
+//       {
+//         label: "NCES ID",
+//         value: "nces_id",
+//       },
+//       {
+//         label: "Primary Contact",
+//         value: "contact",
+//       },
+//       {
+//         label: "Primary Contact Email",
+//         value: "email",
+//       },
+//       {
+//         label: "Primary Contact Title",
+//         value: "title",
+//       },
+//     ],
+//   };
+
+//   const districtAdminCsv = await arrayToCSV(
+//     allDistrictAdminContacts,
+//     districtAdminOpts
+//   );
+
+//   spinner.start("[Loading] Saving to CSV....");
+
+//   const districtFilePath = "./district/allAdminContacts.csv";
+//   await writeToFile(districtFilePath, districtAdminCsv);
+
+//   spinner.succeed(`[Succeed] ${districtFilePath} file generated`);
+// };
+
 const buildAndStoreTeacherContacts = async (
-  districtResponses,
-  districtIdMap,
-  allDistrictData
+  districtResponses: Token[],
+  districtIdMap: Map<string, DistrictIdMap["access_token"]>,
+  allDistrictData: Map<string, District>
 ) => {
   spinner.start("[Loading] Fetching Teachers....");
 
@@ -166,7 +227,7 @@ const buildAndStoreTeacherContacts = async (
 
   // Convert the school data into a lookup table with the school ID so we can use it for the teachers form later.
   const allSchoolData = schoolResponses.reduce((acc, school) => {
-    for (let schoolData of school.data) {
+    for (let schoolData of school) {
       acc.set(schoolData.data.id, {
         name: schoolData.data.name,
         id: schoolData.data.id,
@@ -180,14 +241,18 @@ const buildAndStoreTeacherContacts = async (
   // Get the teachers of each school
   const schoolPromises = [];
   for (let school of schoolResponses) {
-    for (let schoolData of school.data) {
+    for (let schoolData of school) {
       schoolPromises.push(schoolData);
     }
   }
+
   const schoolDataResponses = await Promise.all(
     schoolPromises.map((school) =>
       limit(() =>
-        fetchTeachersBySchool(school, districtIdMap.get(school.data.district))
+        fetchTeachersBySchool(
+          school.data,
+          districtIdMap.get(school.data.district)
+        )
       )
     )
   );
@@ -199,13 +264,13 @@ const buildAndStoreTeacherContacts = async (
   // Build the Teachers data for our output
   const allTeachersData = [];
   for (let schoolData of schoolDataResponses) {
-    for (let { data: teacher } of schoolData.data) {
+    for (let { data: teacher } of schoolData) {
       const schoolId = teacher.roles.teacher.school;
       const schoolName = allSchoolData.get(schoolId)?.name;
       const districtName = allDistrictData.get(teacher.district)?.name;
       allTeachersData.push({
         schoolName,
-        // nces_id <- no id, should this be district nces_id or school nces_id?
+        schoolId,
         districtName,
         districtId: teacher.district,
         firstname: teacher.name.first,
@@ -224,6 +289,10 @@ const buildAndStoreTeacherContacts = async (
         value: "schoolName",
       },
       {
+        label: "School ID",
+        value: "schoolId",
+      },
+      {
         label: "District Name",
         value: "districtName",
       },
@@ -232,15 +301,15 @@ const buildAndStoreTeacherContacts = async (
         value: "districtId",
       },
       {
-        label: "Teachers First Name",
+        label: "Teacher First Name",
         value: "firstname",
       },
       {
-        label: "Teachers Last Name",
+        label: "Teacher Last Name",
         value: "lastName",
       },
       {
-        label: "Teachers Email",
+        label: "Teacher Email",
         value: "email",
       },
     ],
