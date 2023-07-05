@@ -10,7 +10,7 @@ import {
 import { arrayToCSV, writeToFile } from "./utils/helpers";
 import { District, DistrictData, DistrictIdMap, Token } from "./types";
 
-const MAX_CONCURRENT_REQUESTS = 50;
+const MAX_CONCURRENT_REQUESTS = 100;
 const spinner = ora().start();
 const limit = pLimit(MAX_CONCURRENT_REQUESTS);
 
@@ -127,7 +127,7 @@ const buildAndStorePrimaryDistrictAdmins = async (
 
   spinner.start("[Loading] Saving to CSV....");
 
-  const districtFilePath = "./district/primaryAdminContacts.csv";
+  const districtFilePath = "./output/district/primaryAdminContacts.csv";
   await writeToFile(districtFilePath, districtAdminCsv);
 
   spinner.succeed(`[Succeed] ${districtFilePath} file generated`);
@@ -316,13 +316,13 @@ const buildAndStoreTeacherContacts = async (
   };
 
   // The teacher data may be too large so I am breaking them into chuncks
-  const chunkSize = 100000;
+  const chunkSize = 50000;
   let fileIndex = 0;
   for (let i = 0; i < allTeachersData.length; i += chunkSize) {
     const chuncks = allTeachersData.slice(i, i + chunkSize);
 
     const teacherContactCsv = await arrayToCSV(chuncks, teacherOpts);
-    const teacherFilePath = `./teachers/contact_${fileIndex}.csv`;
+    const teacherFilePath = `./output/teachers/contact_${fileIndex}.csv`;
     await writeToFile(teacherFilePath, teacherContactCsv);
     spinner.succeed(`[Succeed] ${teacherFilePath} file generated`);
     fileIndex++;

@@ -81,7 +81,7 @@ const buildAndStoreSchools = async (schoolLocations: SchoolLocation[]) => {
 
   const districtAdminCsv = await arrayToCSV(schoolLocations, schoolOpts);
 
-  const schoolLocationsFilePath = "./school/locations.csv";
+  const schoolLocationsFilePath = "./output/school/locations.csv";
 
   await writeToFile(schoolLocationsFilePath, districtAdminCsv);
 
