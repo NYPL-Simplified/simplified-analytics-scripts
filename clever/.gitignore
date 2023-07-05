@@ -1,0 +1,5 @@
+.env.local
+node_modules/
+schoolLocations.json
+output/
+.DS_Store
