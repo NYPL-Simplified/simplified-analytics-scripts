@@ -8,9 +8,8 @@ import {
 } from "./utils/fetch";
 import { arrayToCSV, parseDistrictData, writeToFile } from "./utils/helpers";
 import {
+  AllDistrictData,
   AllTeacherData,
-  District,
-  DistrictData,
   DistrictIdMap,
   SchoolData,
   Token,
@@ -66,7 +65,7 @@ const main = async () => {
 main();
 
 const buildAndStorePrimaryDistrictAdmins = async (
-  allDistrictData: Map<string, DistrictData>
+  allDistrictData: Map<string, AllDistrictData>
 ) => {
   spinner.start("[Loading] Fetching District Admins....");
 
@@ -202,7 +201,7 @@ const buildAndStorePrimaryDistrictAdmins = async (
 const buildAndStoreTeacherContacts = async (
   districtResponses: Token[],
   districtIdMap: Map<string, DistrictIdMap["access_token"]>,
-  allDistrictData: Map<string, District>
+  allDistrictData: Map<string, AllDistrictData>
 ) => {
   spinner.start("[Loading] Fetching Teachers....");
 

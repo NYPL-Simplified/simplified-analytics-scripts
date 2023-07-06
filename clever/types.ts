@@ -39,14 +39,23 @@ export type District = {
 };
 
 export type DistrictData = {
-  data: {
-    data: District;
-  };
+  data: District;
 };
 
 export type DistrictIdMap = {
   id: string;
   access_token: string;
+};
+
+export type AllDistrictData = {
+  name: string;
+  id: string;
+  nces_id: string;
+  firstName?: string;
+  lastName?: string;
+  contact?: string;
+  email?: string;
+  title?: string;
 };
 
 export type DistrictAdminContacts = {

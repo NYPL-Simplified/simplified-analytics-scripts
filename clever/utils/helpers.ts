@@ -2,7 +2,7 @@ import * as fs from "fs";
 import * as path from "path";
 
 import { AsyncParser, ParserOptions } from "@json2csv/node";
-import { DistrictData } from "../types";
+import { AllDistrictData, DistrictData } from "../types";
 
 /**
  *
@@ -43,11 +43,18 @@ export async function writeToFile(fileName: string, data: any) {
   }
 }
 
-export function parseDistrictData(districtDataResponses: DistrictData[]) {
-  // All the primary contacts of the district.
-  // Convert the district data into a lookup table with the district ID so we can use it for teachers and distirct admins.
+/**
+ * All the primary contacts of the district.
+ * Converted the district data into a lookup table with the district ID so we can use it for teachers and distirct admins.
+ *
+ * @param {DistrictData[][]} districtDataResponses
+ * @returns
+ */
+export function parseDistrictData(
+  districtDataResponses: DistrictData[][]
+): Map<string, AllDistrictData> {
   const allDistrictData = districtDataResponses.reduce((acc, district) => {
-    const districtData = district.data[0].data;
+    const districtData = district[0].data;
     acc.set(districtData.id, {
       name: districtData.name,
       id: districtData.id,

@@ -13,7 +13,7 @@ export const BASE_API_V3 = `${BASE_API}/v3.0`;
 export const DISTRICTS_ENDPOINT =
   "https://clever.com/oauth/tokens?owner_type=district";
 
-const MAX_CONCURRENT_REQUESTS = 200;
+const MAX_CONCURRENT_REQUESTS = 500;
 const limit = pLimit(MAX_CONCURRENT_REQUESTS);
 
 /**
@@ -88,7 +88,7 @@ export const fetchAllDistricts = async (token: string) => {
  * @param {object} token
  * @returns {Promise<object[]>} districtResponses
  */
-export const fetchDistrict = async (token: Token): Promise<DistrictData> => {
+export const fetchDistrict = async (token: Token): Promise<DistrictData[]> => {
   const response = await withRetry(`${BASE_API_V3}/districts`, {
     method: "GET",
     headers: {
@@ -104,7 +104,7 @@ export const fetchDistrict = async (token: Token): Promise<DistrictData> => {
     throw new Error("Error fetching district data");
   }
 
-  return districtResponses;
+  return districtResponses.data;
 };
 
 /**
