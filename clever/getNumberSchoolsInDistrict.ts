@@ -1,42 +1,77 @@
 import ora from "ora";
 import pLimit from "p-limit";
-import { arrayToCSV, writeToFile } from "./utils/helpers";
+import { arrayToCSV, parseDistrictData, writeToFile } from "./utils/helpers";
 import { basicAuthToken } from "./utils/auth";
-import { fetchAllDistricts, fetchSchoolsByDistrict } from "./utils/fetch";
-import { SchoolData, SchoolLocation, Token } from "./types";
+import {
+  fetchAllDistricts,
+  fetchDistrict,
+  fetchSchoolsByDistrict,
+} from "./utils/fetch";
+import { NumberOfSchool, SchoolData, SchoolLocation, Token } from "./types";
 
-const MAX_CONCURRENT_REQUESTS = 100;
 const spinner = ora().start();
-const limit = pLimit(MAX_CONCURRENT_REQUESTS);
 
 const main = async () => {
   let schoolLocations: SchoolLocation[] = [];
+  let numSchools: NumberOfSchool[] = [];
 
   try {
     spinner.start("[Loading] Fetching Clever districts....");
 
     const tokenResponses: Token[] = await fetchAllDistricts(basicAuthToken);
 
+    const districtDataResponses = await Promise.all(
+      tokenResponses.map((token: Token) => fetchDistrict(token))
+    );
+
+    // All the primary contacts of the district.
+    // Convert the district data into a lookup table with the district ID so we can use it for teachers and distirct admins.
+    const allDistrictData = parseDistrictData(districtDataResponses);
+
     const schoolResponses = await Promise.all(
       tokenResponses.map((token: Token) =>
-        limit(() => fetchSchoolsByDistrict(token.access_token))
+        fetchSchoolsByDistrict(token.access_token)
       )
     );
 
     schoolResponses.forEach((schoolResponse: SchoolData[]) => {
       schoolResponse.forEach((data: SchoolData) => {
         const { location = undefined, id } = data.data;
-        const obj = {
+
+        const existingIndex = numSchools.findIndex(
+          (el) =>
+            el.city === (location?.city || "N/A") &&
+            el.state === (location?.state || "N/A") &&
+            el.districtId === data.data.district
+        );
+
+        if (existingIndex === -1) {
+          const numSchoolObj = {
+            districtId: data.data.district,
+            districtName:
+              allDistrictData.get(data.data.district)?.name || "N/A",
+            city: location?.city || "N/A",
+            state: location?.state || "N/A",
+            zip: location?.zip || "N/A",
+            numSchoolsInLocation: 1,
+          };
+          numSchools.push(numSchoolObj);
+        } else {
+          numSchools[existingIndex].numSchoolsInLocation++;
+        }
+
+        const schoolLocationObj = {
           id,
-          city: location?.city,
-          state: location?.state,
-          zip: location?.zip,
+          city: location?.city || "N/A",
+          state: location?.state || "N/A",
+          zip: location?.zip || "N/A",
         };
-        schoolLocations.push(obj);
+        schoolLocations.push(schoolLocationObj);
       });
     });
 
     buildAndStoreSchools(schoolLocations);
+    buildAndStoreNumSchoolsByDistrict(numSchools);
 
     // print number of participating districts
     spinner.succeed(
@@ -48,8 +83,7 @@ const main = async () => {
       `Number of participating schools: ${schoolLocations.length}`
     );
   } catch (error) {
-    console.log(error);
-    spinner.fail("[Failed] Failed to process Clever districts.");
+    spinner.fail(`[Failed] Failed to process Clever districts.${error}`);
   }
 };
 
@@ -87,3 +121,44 @@ const buildAndStoreSchools = async (schoolLocations: SchoolLocation[]) => {
 
   spinner.succeed(`[Succeed] ${schoolLocationsFilePath} file generated`);
 };
+
+async function buildAndStoreNumSchoolsByDistrict(numSchools: NumberOfSchool[]) {
+  const numSchoolOpts = {
+    fields: [
+      {
+        label: "District ID",
+        value: "districtId",
+      },
+      {
+        label: "District Name",
+        value: "districtName",
+      },
+      {
+        label: "City",
+        value: "city",
+      },
+      {
+        label: "State",
+        value: "state",
+      },
+      {
+        label: "Zip",
+        value: "zip",
+      },
+      {
+        label: "Number of Schools",
+        value: "numSchoolsInLocation",
+      },
+    ],
+  };
+
+  spinner.start("[Loading] Saving to CSV....");
+
+  const districtAdminCsv = await arrayToCSV(numSchools, numSchoolOpts);
+
+  const schoolLocationsFilePath = "./output/school/numSchools.csv";
+
+  await writeToFile(schoolLocationsFilePath, districtAdminCsv);
+
+  spinner.succeed(`[Succeed] ${schoolLocationsFilePath} file generated`);
+}

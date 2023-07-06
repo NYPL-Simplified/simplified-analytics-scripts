@@ -47,6 +47,17 @@ export type DistrictIdMap = {
   access_token: string;
 };
 
+export type AllDistrictData = {
+  name: string;
+  id: string;
+  nces_id: string;
+  firstName?: string;
+  lastName?: string;
+  contact?: string;
+  email?: string;
+  title?: string;
+};
+
 export type DistrictAdminContacts = {
   name: string | undefined;
   id: string | undefined;
@@ -100,6 +111,25 @@ export type SchoolLocation = {
   city?: string;
   state?: string;
   zip?: string;
+};
+
+export type NumberOfSchool = {
+  districtId: string;
+  districtName: string | undefined;
+  city: string | undefined;
+  state: string | undefined;
+  zip: string | undefined;
+  numSchoolsInLocation: number;
+};
+
+export type AllTeacherData = {
+  schoolName: string;
+  schoolId: string;
+  districtName: string;
+  districtId: string;
+  firstname: string;
+  lastName: string;
+  email: string;
 };
 
 export type User = {

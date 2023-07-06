@@ -2,6 +2,7 @@ import * as fs from "fs";
 import * as path from "path";
 
 import { AsyncParser, ParserOptions } from "@json2csv/node";
+import { AllDistrictData, DistrictData } from "../types";
 
 /**
  *
@@ -40,4 +41,35 @@ export async function writeToFile(fileName: string, data: any) {
     console.log(err);
     process.exit(1);
   }
+}
+
+/**
+ * All the primary contacts of the district.
+ * Converted the district data into a lookup table with the district ID so we can use it for teachers and distirct admins.
+ *
+ * @param {DistrictData[][]} districtDataResponses
+ * @returns
+ */
+export function parseDistrictData(
+  districtDataResponses: DistrictData[][]
+): Map<string, AllDistrictData> {
+  const allDistrictData = districtDataResponses.reduce((acc, district) => {
+    const districtData = district[0].data;
+    acc.set(districtData.id, {
+      name: districtData.name,
+      id: districtData.id,
+      nces_id: districtData.nces_id,
+      firstName: districtData?.district_contact?.name.first,
+      lastName: districtData?.district_contact?.name.last,
+      contact: districtData?.district_contact
+        ? `${districtData.district_contact?.name.first} ${districtData.district_contact?.name.last}`
+        : undefined,
+      email: districtData.district_contact?.email,
+      title: districtData?.district_contact?.title,
+    });
+
+    return acc;
+  }, new Map());
+
+  return allDistrictData;
 }
