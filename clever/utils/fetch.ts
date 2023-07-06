@@ -1,16 +1,54 @@
-import fetch from "node-fetch";
+import fetch, { RequestInfo, RequestInit, Response } from "node-fetch";
 import {
   Token,
   School,
-  DistrictData,
   SchoolData,
   DistrictAdminData,
+  DistrictData,
 } from "../types";
+import pLimit from "p-limit";
 
-export const BASE_API_V3 = "https://api.clever.com/v3.0";
+export const BASE_API = "https://api.clever.com";
+export const BASE_API_V3 = `${BASE_API}/v3.0`;
 export const DISTRICTS_ENDPOINT =
   "https://clever.com/oauth/tokens?owner_type=district";
 
+const MAX_CONCURRENT_REQUESTS = 200;
+const limit = pLimit(MAX_CONCURRENT_REQUESTS);
+
+/**
+ *  Wraps the original note-fetch function with a rate limiter
+ */
+export const ratedLimitedFetch = (...args: [RequestInfo, RequestInit?]) =>
+  limit(() => fetch(...args));
+
+const MAX_RETRIES = 4;
+/**
+ * Retries a fetch request up to MAX_RETRIES times
+ */
+export const withRetry = async (
+  url: RequestInfo,
+  init?: RequestInit,
+  retryCount = 0
+): Promise<Response> => {
+  try {
+    const response = await ratedLimitedFetch(url, init);
+    if (!response.ok) {
+      throw new Error("Request Failed");
+    }
+    return response;
+  } catch (err) {
+    if (retryCount < MAX_RETRIES) {
+      console.log("");
+      console.log("Retrying request");
+      console.log("");
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      return withRetry(url, init, retryCount + 1);
+    } else {
+      throw err;
+    }
+  }
+};
 /**
  *  Fetches all districts from Clever by basic token
  *
@@ -20,7 +58,10 @@ export const DISTRICTS_ENDPOINT =
  * @returns {Promise<object[]>} districts
  */
 export const fetchAllDistricts = async (token: string) => {
-  const response = await fetch(DISTRICTS_ENDPOINT, {
+  let nextPageUri = DISTRICTS_ENDPOINT;
+  let allDistricts: Token[] = [];
+
+  const response = await withRetry(nextPageUri, {
     method: "GET",
     headers: {
       Accept: "application/json",
@@ -30,7 +71,13 @@ export const fetchAllDistricts = async (token: string) => {
 
   const data: any = await response.json();
 
-  return data.data;
+  if (!data) {
+    throw new Error("Error fetching district tokens");
+  }
+
+  allDistricts.push(...data.data);
+
+  return allDistricts;
 };
 
 /**
@@ -41,8 +88,8 @@ export const fetchAllDistricts = async (token: string) => {
  * @param {object} token
  * @returns {Promise<object[]>} districtResponses
  */
-export const fetchDistrict = async (token: Token) => {
-  const response = await fetch(`${BASE_API_V3}/districts`, {
+export const fetchDistrict = async (token: Token): Promise<DistrictData> => {
+  const response = await withRetry(`${BASE_API_V3}/districts`, {
     method: "GET",
     headers: {
       Accept: "application/json",
@@ -51,7 +98,11 @@ export const fetchDistrict = async (token: Token) => {
     },
   });
 
-  const districtResponses = await response.json();
+  const districtResponses: any = await response.json();
+
+  if (!districtResponses) {
+    throw new Error("Error fetching district data");
+  }
 
   return districtResponses;
 };
@@ -67,7 +118,7 @@ export const fetchDistrict = async (token: Token) => {
 export const fetchDistrictAdmins = async (
   accessToken: string | undefined
 ): Promise<DistrictAdminData[]> => {
-  const response = await fetch(`${BASE_API_V3}/users?role=district_admin`, {
+  const response = await withRetry(`${BASE_API_V3}/users?role=district_admin`, {
     method: "GET",
     headers: {
       Accept: "application/json",
@@ -95,17 +146,37 @@ export const fetchDistrictAdmins = async (
 export const fetchSchoolsByDistrict = async (
   accessToken: string
 ): Promise<SchoolData[]> => {
-  const response = await fetch(`${BASE_API_V3}/schools`, {
-    method: "GET",
-    headers: {
-      Accept: "application/json",
-      Authorization: `Bearer ${accessToken}`,
-    },
-  });
+  const allSchools: SchoolData[] = [];
 
-  const schoolResponses: any = await response.json();
+  let nextPageUri = `${BASE_API_V3}/schools`;
 
-  return schoolResponses.data;
+  // Handle Pagination
+  try {
+    do {
+      const response = await withRetry(nextPageUri, {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+
+      const schoolResponses: any = await response.json();
+
+      allSchools.push(...schoolResponses.data);
+
+      const nextLink = schoolResponses.links.find(
+        (link: any) => link.rel === "next"
+      );
+
+      nextPageUri = nextLink?.uri ? BASE_API + nextLink.uri : "";
+    } while (nextPageUri);
+  } catch (err) {
+    console.log(err);
+    throw err;
+  }
+
+  return allSchools;
 };
 
 /**
@@ -124,18 +195,31 @@ export const fetchTeachersBySchool = async (
   if (!accessToken)
     throw new Error("No access token provided for fetchTeachersBySchool");
 
-  const response = await fetch(
-    `${BASE_API_V3}/schools/${school.id}/users?role=teacher`,
-    {
+  const allTeachers: any = [];
+
+  let nextPageUri = `${BASE_API_V3}/schools/${school.id}/users?role=teacher`;
+
+  do {
+    const response = await withRetry(nextPageUri, {
       method: "GET",
       headers: {
         Accept: "application/json",
         Authorization: `Bearer ${accessToken}`,
       },
+    });
+
+    const data: any = await response.json();
+
+    if (!data) {
+      throw new Error("Error fetching teachers");
     }
-  );
 
-  const data: any = await response.json();
+    allTeachers.push(...data.data);
 
-  return data.data;
+    const nextLink = data.links.find((link: any) => link.rel === "next");
+
+    nextPageUri = nextLink?.uri ? BASE_API + nextLink.uri : "";
+  } while (nextPageUri);
+
+  return allTeachers;
 };

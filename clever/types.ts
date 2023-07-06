@@ -39,7 +39,9 @@ export type District = {
 };
 
 export type DistrictData = {
-  data: District;
+  data: {
+    data: District;
+  };
 };
 
 export type DistrictIdMap = {
@@ -100,6 +102,25 @@ export type SchoolLocation = {
   city?: string;
   state?: string;
   zip?: string;
+};
+
+export type NumberOfSchool = {
+  districtId: string;
+  districtName: string | undefined;
+  city: string | undefined;
+  state: string | undefined;
+  zip: string | undefined;
+  numSchoolsInLocation: number;
+};
+
+export type AllTeacherData = {
+  schoolName: string;
+  schoolId: string;
+  districtName: string;
+  districtId: string;
+  firstname: string;
+  lastName: string;
+  email: string;
 };
 
 export type User = {
